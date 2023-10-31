@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ece473-prj05-producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ece473-prj05-producer
+  template:
+    metadata:
+      labels:
+        app: ece473-prj05-producer
+    spec:
+      containers:
+        - name: producer
+          image: ece473-prj05-clients:v1
+          env:
+          - name: ROLE
+            value: "producer"
+          - name: KAFKA_BROKER
+            value: "kafka-0.kafka-service.default.svc.cluster.local:9092"
+          - name: TOPIC
+            value: "test"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ece473-prj05-consumer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ece473-prj05-consumer
+  template:
+    metadata:
+      labels:
+        app: ece473-prj05-consumer
+    spec:
+      containers:
+        - name: consumer
+          image: ece473-prj05-clients:v1
+          env:
+          - name: ROLE
+            value: "consumer"
+          - name: KAFKA_BROKER
+            value: "kafka-1.kafka-service.default.svc.cluster.local:9092"
+          - name: TOPIC
+            value: "test"
