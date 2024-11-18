@@ -107,11 +107,11 @@ func consumer(broker, topic string) {
 	// Configuración para el consumidor de grupo
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
-	log.Printf("Consumer....")
+	log.Printf("Start consuming....")
 	// Crear el ConsumerGroup
 	group, err := sarama.NewConsumerGroup([]string{broker}, "consumer-group-id", config)
 	if err != nil {
-		log.Fatalf("Error al crear el ConsumerGroup: %v", err)
+		log.Fatalf("Error in creating ConsumerGroup: %v", err)
 	}
 	defer group.Close()
 
@@ -123,7 +123,7 @@ func consumer(broker, topic string) {
 		// Iniciar la ingestión de mensajes del ConsumerGroup
 		err := group.Consume(context.Background(), []string{topic}, handler)
 		if err != nil {
-			log.Fatalf("Error al consumir mensajes: %v", err)
+			log.Fatalf("Error in consuming messages: %v", err)
 		}
 	}
 }
