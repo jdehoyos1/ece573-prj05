@@ -55,25 +55,74 @@ func producer(broker, topic string) {
 	}
 }
 
+// func consumer(broker, topic string) {
+// 	consumer, err := sarama.NewConsumer([]string{broker}, nil)
+// 	if err != nil {
+// 		log.Fatalf("Cannot create consumer at %s: %v", broker, err)
+// 	}
+// 	defer consumer.Close()
+
+// 	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
+// 	if err != nil {
+// 		log.Fatalf("Cannot create partition consumer at %s: %v", broker, err)
+// 	}
+// 	defer partitionConsumer.Close()
+
+// 	log.Printf("%s: start receiving messages from %s", topic, broker)
+// 	for count := 1; ; count++ {
+// 		msg := <-partitionConsumer.Messages()
+// 		if count%1000 == 0 {
+// 			log.Printf("%s: received %d messages, last (%s)",
+// 				topic, count, string(msg.Value))
+// 		}
+// 	}
+// }
+
+
 func consumer(broker, topic string) {
-	consumer, err := sarama.NewConsumer([]string{broker}, nil)
-	if err != nil {
-		log.Fatalf("Cannot create consumer at %s: %v", broker, err)
-	}
-	defer consumer.Close()
+	// Set up the consumer group configuration
+	config := sarama.NewConfig()
+	config.Consumer.Return.Errors = true
 
-	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
+	// Create a new consumer group
+	group, err := sarama.NewConsumerGroup([]string{broker}, "consumer-group-id", config)
 	if err != nil {
-		log.Fatalf("Cannot create partition consumer at %s: %v", broker, err)
+		log.Fatalf("Cannot create consumer group: %v", err)
 	}
-	defer partitionConsumer.Close()
+	defer group.Close()
 
-	log.Printf("%s: start receiving messages from %s", topic, broker)
-	for count := 1; ; count++ {
-		msg := <-partitionConsumer.Messages()
-		if count%1000 == 0 {
-			log.Printf("%s: received %d messages, last (%s)",
-				topic, count, string(msg.Value))
+	// Define the message handler
+	handler := ConsumerGroupHandler{Topic: topic}
+
+	// Start consuming messages from the consumer group
+	for {
+		err := group.Consume(context.Background(), []string{topic}, handler)
+		if err != nil {
+			log.Fatalf("Error consuming messages: %v", err)
 		}
 	}
+}
+
+// ConsumerGroupHandler is a custom handler to process messages from all partitions
+type ConsumerGroupHandler struct {
+	Topic string
+}
+
+func (h *ConsumerGroupHandler) Setup(sarama.ConsumerGroupSession) error {
+	// Setup code (e.g., initializing state)
+	return nil
+}
+
+func (h *ConsumerGroupHandler) Cleanup(sarama.ConsumerGroupSession) error {
+	// Cleanup code (e.g., closing resources)
+	return nil
+}
+
+func (h *ConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
+	// Consume messages from a partition
+	for msg := range claim.Messages() {
+		log.Printf("Partition %d: %s", msg.Partition, string(msg.Value))
+		sess.MarkMessage(msg, "")
+	}
+	return nil
 }
