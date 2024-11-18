@@ -79,50 +79,51 @@ func producer(broker, topic string) {
 // }
 
 
-func consumer(broker, topic string) {
-	// Set up the consumer group configuration
-	config := sarama.NewConfig()
-	config.Consumer.Return.Errors = true
-
-	// Create a new consumer group
-	group, err := sarama.NewConsumerGroup([]string{broker}, "consumer-group-id", config)
-	if err != nil {
-		log.Fatalf("Cannot create consumer group: %v", err)
-	}
-	defer group.Close()
-
-	// Define the message handler
-	handler := ConsumerGroupHandler{Topic: topic}
-
-	// Start consuming messages from the consumer group
-	for {
-		err := group.Consume(context.Background(), []string{topic}, handler)
-		if err != nil {
-			log.Fatalf("Error consuming messages: %v", err)
-		}
-	}
-}
-
-// ConsumerGroupHandler is a custom handler to process messages from all partitions
+// ConsumerGroupHandler implementa el manejo de mensajes de un grupo de consumidores
 type ConsumerGroupHandler struct {
 	Topic string
 }
 
 func (h *ConsumerGroupHandler) Setup(sarama.ConsumerGroupSession) error {
-	// Setup code (e.g., initializing state)
+	// No se requiere configuración adicional
 	return nil
 }
 
 func (h *ConsumerGroupHandler) Cleanup(sarama.ConsumerGroupSession) error {
-	// Cleanup code (e.g., closing resources)
+	// No se requiere limpieza adicional
 	return nil
 }
 
 func (h *ConsumerGroupHandler) ConsumeClaim(sess sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
-	// Consume messages from a partition
+	// Procesa los mensajes de la partición asignada
 	for msg := range claim.Messages() {
 		log.Printf("Partition %d: %s", msg.Partition, string(msg.Value))
 		sess.MarkMessage(msg, "")
 	}
 	return nil
+}
+
+func consumer(broker, topic string) {
+	// Configuración para el consumidor de grupo
+	config := sarama.NewConfig()
+	config.Consumer.Return.Errors = true
+	log.Printf("Consumer....")
+	// Crear el ConsumerGroup
+	group, err := sarama.NewConsumerGroup([]string{broker}, "consumer-group-id", config)
+	if err != nil {
+		log.Fatalf("Error al crear el ConsumerGroup: %v", err)
+	}
+	defer group.Close()
+
+	// Crear el handler para consumir mensajes
+	handler := &ConsumerGroupHandler{Topic: topic}
+
+	// Consumir mensajes en un bucle
+	for {
+		// Iniciar la ingestión de mensajes del ConsumerGroup
+		err := group.Consume(context.Background(), []string{topic}, handler)
+		if err != nil {
+			log.Fatalf("Error al consumir mensajes: %v", err)
+		}
+	}
 }
