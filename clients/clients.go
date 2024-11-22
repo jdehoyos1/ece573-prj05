@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sync"
 
 	"github.com/IBM/sarama"
 )
@@ -16,7 +17,6 @@ func main() {
 	}
 
 	role := os.Getenv("ROLE")
-
 	broker := os.Getenv("KAFKA_BROKER")
 
 	if role == "producer" {
@@ -62,18 +62,51 @@ func consumer(broker, topic string) {
 	}
 	defer consumer.Close()
 
-	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
+	// Obtener las particiones del tema
+	partitions, err := consumer.Partitions(topic)
 	if err != nil {
-		log.Fatalf("Cannot create partition consumer at %s: %v", broker, err)
+		log.Fatalf("Failed to get partitions for topic %s: %v", topic, err)
 	}
-	defer partitionConsumer.Close()
 
-	log.Printf("%s: start receiving messages from %s", topic, broker)
-	for count := 1; ; count++ {
-		msg := <-partitionConsumer.Messages()
+	log.Printf("%s: consuming messages from all partitions", topic)
+
+	var wg sync.WaitGroup
+	messageCh := make(chan *sarama.ConsumerMessage, len(partitions))
+
+	// Consumir mensajes de todas las particiones
+	for _, partition := range partitions {
+		wg.Add(1)
+		go func(partition int32) {
+			defer wg.Done()
+			consumePartition(consumer, topic, partition, messageCh)
+		}(partition)
+	}
+
+	// Procesar los mensajes recibidos
+	go func() {
+		wg.Wait()
+		close(messageCh)
+	}()
+
+	count := 0
+	for msg := range messageCh {
+		count++
 		if count%1000 == 0 {
 			log.Printf("%s: received %d messages, last (%s)",
 				topic, count, string(msg.Value))
 		}
+	}
+}
+
+func consumePartition(consumer sarama.Consumer, topic string, partition int32, messageCh chan<- *sarama.ConsumerMessage) {
+	partitionConsumer, err := consumer.ConsumePartition(topic, partition, sarama.OffsetNewest)
+	if err != nil {
+		log.Printf("Cannot create partition consumer for partition %d: %v", partition, err)
+		return
+	}
+	defer partitionConsumer.Close()
+
+	for msg := range partitionConsumer.Messages() {
+		messageCh <- msg
 	}
 }
