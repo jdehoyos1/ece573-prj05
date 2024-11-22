@@ -55,12 +55,12 @@ func producer(broker, topic string) {
 	}
 }
 
-// func consumer(broker, topic string) {
-// 	consumer, err := sarama.NewConsumer([]string{broker}, nil)
-// 	if err != nil {
-// 		log.Fatalf("Cannot create consumer at %s: %v", broker, err)
-// 	}
-// 	defer consumer.Close()
+ func consumer(broker, topic string) {
+ 	consumer, err := sarama.NewConsumer([]string{broker}, nil)
+ 	if err != nil {
+ 		log.Fatalf("Cannot create consumer at %s: %v", broker, err)
+ 	}
+ 	defer consumer.Close()
 
 	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
 	if err != nil {
